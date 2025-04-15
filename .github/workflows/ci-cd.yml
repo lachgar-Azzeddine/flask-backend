@@ -8,35 +8,46 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
+      # Step 1: Checkout the source code
       - name: Checkout code
         uses: actions/checkout@v3
 
+      # Step 2: Log in to DockerHub using secrets
       - name: Log in to DockerHub
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
+      # Step 3: Set up Buildx (required for docker buildx build)
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-        with:
-         install: true
-         driver-opts: network=host
 
+      # Step 4: Build Docker image (robust fix with explicit . context and debug echo)
       - name: Build Docker image
-        run: docker buildx build --load -t ${{ secrets.DOCKER_USERNAME }}/flask-backend:latest .
+        run: |
+          echo "🔍 DockerHub username: ${{ secrets.DOCKER_USERNAME }}"
+          IMAGE_TAG="${{ secrets.DOCKER_USERNAME }}/flask-backend:latest"
+          echo "🚀 Building Docker image: $IMAGE_TAG"
+          docker buildx build --load -t "$IMAGE_TAG" .
 
-      - name: Debug Buildx
-        run: docker buildx ls
-
+      # Step 5: Push Docker image to DockerHub
       - name: Push Docker image
         run: docker push ${{ secrets.DOCKER_USERNAME }}/flask-backend:latest
 
+      # Step 6: Clone and update the GitOps repo with new image tag
       - name: Clone GitOps repo
         run: |
           git clone https://github.com/zizo1112/flask-gitops-demo.git
           cd flask-gitops-demo
+
+          # Git identity for commit
           git config user.name "GitHub Action"
           git config user.email "action@github.com"
+
+          # Update image tag in deployment.yaml
           sed -i 's|image: .*|image: '${{ secrets.DOCKER_USERNAME }}'/flask-backend:latest|' apps/flask-app/deployment.yaml
+
+          # Commit and push the change
           git add .
-          git commit -m "Update image to latest"
+          git commit -m "🔁 Update image to latest"
           git push https://${{ secrets.GITOPS_TOKEN }}@github.com/zizo1112/flask-gitops-demo.git
