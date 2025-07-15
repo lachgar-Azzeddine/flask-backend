@@ -1,0 +1,33 @@
+name: Health Check
+
+on:
+  schedule:
+    # Run every 30 minutes
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Check application health
+      run: |
+        # Replace with your actual application URL
+        APP_URL="${{ secrets.APP_URL || 'https://your-app.example.com' }}"
+        
+        echo "Checking health of: $APP_URL"
+        
+        # Check if the application is responding
+        if curl -f -s "$APP_URL/api/message" > /dev/null; then
+          echo "✅ Application is healthy"
+        else
+          echo "❌ Application is not responding"
+          exit 1
+        fi
+    
+    - name: Notify on failure
+      if: failure()
+      run: |
+        echo "Health check failed! Consider setting up notifications to Slack/Discord/Email"
+        # You can add notification logic here
